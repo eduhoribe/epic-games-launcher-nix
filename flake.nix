@@ -16,6 +16,16 @@
         default = self.packages.x86_64-linux.epic-games-launcher;
       };
 
+    nixosModules = {
+      epic-games-launcher = import ./modules/nixos.nix;
+      default = self.nixosModules.epic-games-launcher;
+    };
+
+    homeManagerModules = {
+      epic-games-launcher = import ./modules/home-manager.nix;
+      default = self.homeManagerModules.epic-games-launcher;
+    };
+
     overlays.default = final: prev: {
       epic-games-launcher = final.callPackage ./package.nix { };
     };

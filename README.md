@@ -36,7 +36,53 @@ inputs.epic-games-launcher = {
 };
 ```
 
-Install its package in Home Manager:
+### Home Manager (one user)
+
+Import the module in your Home Manager configuration:
+
+```nix
+imports = [ inputs.epic-games-launcher.homeManagerModules.default ];
+
+programs.epic-games-launcher = {
+  enable = true;
+};
+```
+
+### NixOS (all users)
+
+Import the module in your NixOS configuration:
+
+```nix
+imports = [ inputs.epic-games-launcher.nixosModules.default ];
+
+programs.epic-games-launcher = {
+  enable = true;
+};
+```
+
+The NixOS module installs the package system-wide. The Home Manager module
+installs it for one user.
+
+Both modules expose the same options:
+
+| Option           | Default                   | Behavior                                         |
+|------------------|---------------------------|--------------------------------------------------|
+| `enable`         | `false`                   | Install Epic Games Launcher.                     |
+| `package`        | This repository's package | Override the installed package.                  |
+
+The modules use your Nixpkgs unfree policy. Allow this package, for example:
+
+```nix
+nixpkgs.config.allowUnfreePredicate = pkg:
+  builtins.elem (lib.getName pkg) [ "epic-games-launcher" ];
+```
+
+Add it to your existing predicate if you already have one. With Home Manager's
+`useGlobalPkgs`, configure this in NixOS. Alternatively, set `package` to
+`inputs.epic-games-launcher.packages.${pkgs.stdenv.hostPlatform.system}.default`,
+which already permits this specific unfree package.
+
+### Package only
 
 ```nix
 home.packages = [
@@ -44,8 +90,8 @@ home.packages = [
 ];
 ```
 
-Alternatively, apply `inputs.epic-games-launcher.overlays.default` and install
-`pkgs.epic-games-launcher`. The reusable package file can also be loaded with
+You can also apply `inputs.epic-games-launcher.overlays.default` and install
+`pkgs.epic-games-launcher`, or load the package directly with
 `pkgs.callPackage ./package.nix { }`.
 
 ## Update
