@@ -1,4 +1,4 @@
-{ lib, appimageTools, fetchurl }:
+{ lib, appimageTools, fetchurl, makeWrapper }:
 
 let
   pname = "epic-games-launcher";
@@ -15,7 +15,19 @@ in
 appimageTools.wrapType2 {
   inherit pname version src;
 
+  nativeBuildInputs = [ makeWrapper ];
+
+  profile = ''
+    export WEBKIT_EXEC_PATH="${contents}/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
+    export WEBKIT_INJECTED_BUNDLE_PATH="${contents}/usr/lib/x86_64-linux-gnu"
+  '';
+
   extraInstallCommands = ''
+    # Tauri's autostart plugin uses APPIMAGE instead of the extracted executable.
+    # Set it outside the FHS environment so it points back to the full wrapper.
+    wrapProgram $out/bin/${pname} \
+      --set APPIMAGE "$out/bin/${pname}"
+
     install -Dm444 ${contents}/usr/share/applications/epic-games-launcher.desktop \
       $out/share/applications/epic-games-launcher.desktop
     substituteInPlace $out/share/applications/epic-games-launcher.desktop \
