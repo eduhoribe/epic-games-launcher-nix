@@ -19,7 +19,9 @@ appimageTools.wrapType2 {
     install -Dm444 ${contents}/usr/share/applications/epic-games-launcher.desktop \
       $out/share/applications/epic-games-launcher.desktop
     substituteInPlace $out/share/applications/epic-games-launcher.desktop \
-      --replace-fail 'Exec=EpicGamesLauncher' 'Exec=epic-games-launcher'
+      --replace-fail 'Exec=EpicGamesLauncher' 'Exec=epic-games-launcher' \
+      --replace-fail 'Icon=EpicGamesLauncher' \
+        "Icon=$out/share/icons/hicolor/256x256@2/apps/EpicGamesLauncher.png"
 
     mkdir -p $out/share/icons
     cp -r ${contents}/usr/share/icons/hicolor $out/share/icons/
