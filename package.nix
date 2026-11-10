@@ -26,6 +26,7 @@ let
       --subst-var-by dpkgQuery ${dpkg}/bin/dpkg-query \
       --subst-var-by seed ${src} \
       --subst-var-by runtime "$out"
+    cp ${./scripts/autostart.py} "$out/libexec/autostart.py"
     chmod +x "$out/libexec/launcher.py"
     for command in dpkg pkexec sudo; do
       cat > "$out/libexec/epic-updater/$command" <<SH
@@ -60,6 +61,7 @@ SH
     # They run in this environment without patching each downloaded release.
     runScript = start;
     extraPreBwrapCmds = ''
+      export EGL_NIX_WRAPPER="$0"
       export EGL_NIX_LAUNCHER_ROOT="$(${updater}/libexec/launcher.py init)"
     '';
     extraBwrapArgs = [

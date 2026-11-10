@@ -119,9 +119,16 @@ directory aside, and start it again. Account settings and installed-game records
 remain in the separate `com.epicgames.eglv2` data directory. To opt out of
 self-updates, launch with `EGL_DISABLE_SELF_UPDATE=1`.
 
-Always launch through `epic-games-launcher` or the installed desktop entry.
-For desktop autostart, use that same command: the upstream in-app autostart
-toggle may register the raw per-user binary, which needs the Nix environment.
+Use Epic's own settings to enable or disable desktop autostart. The autostart
+file stays writable and owned by the application. A runtime adapter translates
+only its raw executable path into a per-user launch bridge, preserving arguments
+and all other settings. Disabling autostart removes the entry normally; the
+adapter never creates one. Existing raw entries are migrated on launch.
+
+The bridge prefers the installed `epic-games-launcher` command so system rebuilds
+select the current Nix runtime. For `nix run` without installation it falls back
+to the runtime used on the last launch (which must remain in the Nix store).
+Epic's per-user application updates remain independent of system rebuilds.
 Future upstream library requirements may still require a Nix runtime update.
 
 ### Update the bootstrap package

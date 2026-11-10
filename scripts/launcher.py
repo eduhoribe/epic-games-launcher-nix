@@ -6,6 +6,9 @@ import os
 from pathlib import Path
 import subprocess
 import sys
+import signal
+
+from autostart import Autostart, prepare_bridge
 import tempfile
 
 DPKG_DEB = "@dpkgDeb@"
@@ -78,6 +81,10 @@ def main():
     command, *arguments = sys.argv[1:]
     if command == "init" and not arguments:
         install(Path(SEED), bootstrap=True)
+        with (root() / "install.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX)
+            if wrapper := os.environ.get("EGL_NIX_WRAPPER"):
+                prepare_bridge(root(), wrapper)
         print(root())
         return 0
     if command == "dpkg":
@@ -93,7 +100,12 @@ def main():
         os.environ.pop("APPDIR", None)
         os.environ["PATH"] = RUNTIME + "/libexec/epic-updater:" + os.environ["PATH"]
         binary = root() / "installation/usr/bin/EpicGamesLauncher"
-        os.execv(str(binary), [str(binary), *arguments])
+        with Autostart(root()):
+            child = subprocess.Popen([str(binary), *arguments])
+            for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+                signal.signal(number, lambda signum, _frame: child.send_signal(signum))
+            returncode = child.wait()
+            return returncode if returncode >= 0 else 128 - returncode
     raise ValueError("Unknown launcher helper command")
 
 
