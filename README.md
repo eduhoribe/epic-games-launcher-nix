@@ -2,6 +2,9 @@
 
 Bootstraps a writable per-user copy of the upstream x86_64 Linux Debian binary
 and runs it in a Nix-provided FHS environment with GTK and WebKit libraries.
+The runtime includes GStreamer audio sinks, media parsers, and decoders for
+WebKit playback. `nix flake check` verifies plugin discovery in the generated
+FHS root and exercises an audio pipeline without requiring an audio device.
 Includes the desktop entry, Epic launcher URI handler declaration, and icons.
 The software is proprietary; this repository contains the packaging only.
 

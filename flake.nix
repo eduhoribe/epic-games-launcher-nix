@@ -16,8 +16,9 @@
         default = self.packages.x86_64-linux.epic-games-launcher;
       };
 
-    checks.x86_64-linux.user-updates =
-      self.packages.x86_64-linux.default.tests.user-updates;
+    checks.x86_64-linux = {
+      inherit (self.packages.x86_64-linux.default.tests) user-updates media-plugins;
+    };
 
     nixosModules = {
       epic-games-launcher = import ./modules/nixos.nix;
