@@ -1,7 +1,7 @@
 # Epic Games Launcher for NixOS
 
-Packages the upstream x86_64 Linux Debian binary with Nix-provided GTK and
-WebKit libraries. No Debian package manager is needed at runtime.
+Bootstraps a writable per-user copy of the upstream x86_64 Linux Debian binary
+and runs it in a Nix-provided FHS environment with GTK and WebKit libraries.
 Includes the desktop entry, Epic launcher URI handler declaration, and icons.
 The software is proprietary; this repository contains the packaging only.
 
@@ -97,10 +97,31 @@ You can also apply `inputs.epic-games-launcher.overlays.default` and install
 
 ## Update
 
-The launcher is installed in the read-only Nix store. Its built-in self-updater
-is disabled with `EGL_DISABLE_SELF_UPDATE=1`; launcher updates go through Nix.
-This package does not keep a writable per-user launcher installation like Steam.
-Game downloads and updates remain managed by the launcher.
+On first launch, the pinned Debian package is extracted to
+`${XDG_DATA_HOME:-$HOME/.local/share}/epic-games-launcher/installation`.
+Subsequent launches reuse that copy, including any updates installed by the
+launcher. Nix rebuilds and rollbacks do not replace or downgrade it.
+
+The built-in updater remains enabled. Epic checks and verifies its downloads;
+a private adapter handles its `dpkg -S` and `pkexec dpkg -i` calls using only
+the per-user installation. It validates the package identity and architecture,
+stages the full payload, and atomically swaps installations. Failed extraction
+leaves the previous installation intact. No root access, host Debian database,
+or package maintainer scripts are used. Updated binaries keep using the Nix
+runtime without requiring another rebuild. Game downloads and updates remain
+managed by the launcher.
+
+To reset the launcher to the bundled version, close it, move the `installation`
+directory aside, and start it again. Account settings and installed-game records
+remain in the separate `com.epicgames.eglv2` data directory. To opt out of
+self-updates, launch with `EGL_DISABLE_SELF_UPDATE=1`.
+
+Always launch through `epic-games-launcher` or the installed desktop entry.
+For desktop autostart, use that same command: the upstream in-app autostart
+toggle may register the raw per-user binary, which needs the Nix environment.
+Future upstream library requirements may still require a Nix runtime update.
+
+### Update the bootstrap package
 
 The upstream URL serves the latest Debian package rather than an immutable release.
 The SHA-256 hash pins the downloaded bytes; a changed download fails verification
@@ -114,9 +135,11 @@ nix store prefetch-file --json \
   'https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.deb'
 ```
 
-Update `version` and `src.hash` in `package.nix`, then run `nix build` and check
-that the launcher opens. Consumers must update their launcher flake input and
-rebuild their NixOS or Home Manager configuration to install the new package.
+Update `version` and `src.hash` in `package.nix`, then run `nix build`,
+`nix flake check`, and check that the launcher opens. This changes the initial
+version for new per-user installations. Existing installations keep their own
+version. Update the launcher flake input and rebuild NixOS or Home Manager to
+receive packaging and runtime changes.
 Update Nixpkgs separately with `nix flake update nixpkgs`.
 
 Desktop integration declares `com.epicgames.launcher` URLs. Selecting a default
