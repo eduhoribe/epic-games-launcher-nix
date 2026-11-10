@@ -1,49 +1,87 @@
-{ lib, appimageTools, fetchurl, makeWrapper }:
+{ lib
+, stdenv
+, fetchurl
+, dpkg
+, autoPatchelfHook
+, wrapGAppsHook3
+, webkitgtk_4_1
+, gtk3
+, glib
+, glib-networking
+, gdk-pixbuf
+, cairo
+, dbus
+, libsoup_3
+, libx11
+, libayatana-appindicator
+}:
 
-let
+stdenv.mkDerivation {
   pname = "epic-games-launcher";
-  version = "0.110.0+gf2e5ba5";
+  version = "0.113.1+g311e678";
 
   # Upstream serves the latest release at this URL. The hash pins this snapshot.
   src = fetchurl {
-    url = "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.AppImage";
-    hash = "sha256-U7vRJC4JX2CZYygO8TIVgRVEKrcZukV4XFqT6vqpXEA=";
+    url = "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.deb";
+    hash = "sha256-Y3KDvhHq76tkSRer0WtwxIrthSfAVikGLIiC/NMM6kM=";
   };
 
-  contents = appimageTools.extract { inherit pname version src; };
-in
-appimageTools.wrapType2 {
-  inherit pname version src;
+  nativeBuildInputs = [
+    dpkg
+    autoPatchelfHook
+    wrapGAppsHook3
+  ];
+  buildInputs = [
+    stdenv.cc.cc.lib
+    webkitgtk_4_1
+    gtk3
+    glib
+    glib-networking
+    gdk-pixbuf
+    cairo
+    dbus
+    libsoup_3
+    libx11
+    libayatana-appindicator
+  ];
 
-  nativeBuildInputs = [ makeWrapper ];
+  # The tray library is loaded with dlopen rather than linked into the binary.
+  runtimeDependencies = [ libayatana-appindicator ];
 
-  profile = ''
-    export WEBKIT_EXEC_PATH="${contents}/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1"
-    export WEBKIT_INJECTED_BUNDLE_PATH="${contents}/usr/lib/x86_64-linux-gnu"
+  unpackPhase = ''
+    runHook preUnpack
+    dpkg-deb -x "$src" .
+    runHook postUnpack
   '';
 
-  extraInstallCommands = ''
-    # Tauri's autostart plugin uses APPIMAGE instead of the extracted executable.
-    # Set it outside the FHS environment so it points back to the full wrapper.
-    wrapProgram $out/bin/${pname} \
-      --set APPIMAGE "$out/bin/${pname}"
+  dontConfigure = true;
+  dontBuild = true;
 
-    install -Dm444 ${contents}/usr/share/applications/epic-games-launcher.desktop \
-      $out/share/applications/epic-games-launcher.desktop
-    substituteInPlace $out/share/applications/epic-games-launcher.desktop \
+  installPhase = ''
+    runHook preInstall
+    mkdir -p "$out"
+    cp -r usr/bin usr/lib usr/share "$out/"
+    mv "$out/bin/EpicGamesLauncher" "$out/bin/epic-games-launcher"
+
+    substituteInPlace "$out/share/applications/epic-games-launcher.desktop" \
       --replace-fail 'Exec=EpicGamesLauncher' 'Exec=epic-games-launcher' \
       --replace-fail 'Icon=EpicGamesLauncher' \
         "Icon=$out/share/icons/hicolor/256x256@2/apps/EpicGamesLauncher.png"
+    runHook postInstall
+  '';
 
-    mkdir -p $out/share/icons
-    cp -r ${contents}/usr/share/icons/hicolor $out/share/icons/
+  preFixup = ''
+    addAutoPatchelfSearchPath "$out/lib/epic-games-launcher"
+    # Updates must go through Nix; the built-in installer cannot replace store files.
+    gappsWrapperArgs+=(--set EGL_DISABLE_SELF_UPDATE 1)
   '';
 
   meta = {
     description = "Epic Games Launcher";
     homepage = "https://store.epicgames.com/";
     license = lib.licenses.unfree;
+    sourceProvenance = [ lib.sourceTypes.binaryNativeCode ];
     platforms = [ "x86_64-linux" ];
-    mainProgram = pname;
+    mainProgram = "epic-games-launcher";
   };
 }

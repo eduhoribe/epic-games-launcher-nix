@@ -1,6 +1,7 @@
 # Epic Games Launcher for NixOS
 
-Packages the upstream x86_64 Linux AppImage with `appimageTools.wrapType2`.
+Packages the upstream x86_64 Linux Debian binary with Nix-provided GTK and
+WebKit libraries. No Debian package manager is needed at runtime.
 Includes the desktop entry, Epic launcher URI handler declaration, and icons.
 The software is proprietary; this repository contains the packaging only.
 
@@ -96,7 +97,12 @@ You can also apply `inputs.epic-games-launcher.overlays.default` and install
 
 ## Update
 
-The upstream URL serves the latest AppImage rather than an immutable release.
+The launcher is installed in the read-only Nix store. Its built-in self-updater
+is disabled with `EGL_DISABLE_SELF_UPDATE=1`; launcher updates go through Nix.
+This package does not keep a writable per-user launcher installation like Steam.
+Game downloads and updates remain managed by the launcher.
+
+The upstream URL serves the latest Debian package rather than an immutable release.
 The SHA-256 hash pins the downloaded bytes; a changed download fails verification
 until the package is deliberately updated. Old snapshots may stop being available
 from upstream unless already cached.
@@ -105,12 +111,13 @@ To download and hash the current release:
 
 ```sh
 nix store prefetch-file --json \
-  'https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.AppImage'
+  'https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.deb'
 ```
 
 Update `version` and `src.hash` in `package.nix`, then run `nix build` and check
-that the launcher opens. Update Nixpkgs separately with `nix flake update nixpkgs`.
+that the launcher opens. Consumers must update their launcher flake input and
+rebuild their NixOS or Home Manager configuration to install the new package.
+Update Nixpkgs separately with `nix flake update nixpkgs`.
 
 Desktop integration declares `com.epicgames.launcher` URLs. Selecting a default
-handler remains a desktop or Home Manager setting. Upstream currently forces
-GTK's X11 backend, so Wayland sessions need XWayland.
+handler remains a desktop or Home Manager setting.

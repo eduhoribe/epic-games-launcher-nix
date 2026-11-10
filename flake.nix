@@ -1,5 +1,5 @@
 {
-  description = "Epic Games Launcher AppImage packaged for NixOS";
+  description = "Epic Games Launcher Debian binary packaged for NixOS";
 
   inputs.nixpkgs.url = "github:NixOS/nixpkgs/nixos-26.05";
 
