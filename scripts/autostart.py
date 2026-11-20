@@ -31,8 +31,12 @@ def prepare_bridge(state, fallback):
 
 
 class Autostart:
-    def __init__(self, state, *, config_home=None):
+    def __init__(self, state, *, executable=None, config_home=None):
         self.state = state
+        paths = [state / 'installation/usr/bin/EpicGamesLauncher']
+        if executable is not None:
+            paths.append(executable)
+        self.executables = [form for path in paths for form in (desktop_quote(path), str(path))]
         self.directory = Path(config_home or os.environ.get('XDG_CONFIG_HOME', str(Path.home() / '.config'))) / 'autostart'
         self.entry = self.directory / 'epic-games-launcher.desktop'
         self.stopped = threading.Event()
@@ -52,8 +56,7 @@ class Autostart:
                 if not in_desktop or not line.startswith('Exec='):
                     continue
                 # Match only Epic's raw executable; preserve all arguments.
-                raw = str(self.state / 'installation/usr/bin/EpicGamesLauncher')
-                for executable in (desktop_quote(raw), raw):
+                for executable in self.executables:
                     prefix = 'Exec=' + executable
                     if line.startswith(prefix) and line[len(prefix):len(prefix) + 1] in ('', ' ', '\n', '\r'):
                         lines[index] = 'Exec=' + desktop_quote(self.state / 'launch') + line[len(prefix):]

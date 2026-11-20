@@ -5,6 +5,8 @@
 let
   pname = "epic-games-launcher";
   version = "0.113.1+g311e678";
+  fhsMount = "/usr/epic-games-launcher";
+  fhsBinary = "${fhsMount}/installation/usr/bin/EpicGamesLauncher";
 
   # This is the initial per-user installation, not a pin on subsequent updates.
   src = fetchurl {
@@ -25,6 +27,7 @@ let
       --subst-var-by dpkgDeb ${dpkg}/bin/dpkg-deb \
       --subst-var-by dpkgQuery ${dpkg}/bin/dpkg-query \
       --subst-var-by seed ${src} \
+      --subst-var-by fhsBinary ${fhsBinary} \
       --subst-var-by runtime "$out"
     cp ${./scripts/autostart.py} "$out/libexec/autostart.py"
     chmod +x "$out/libexec/launcher.py"
@@ -39,7 +42,7 @@ SH
   '';
 
   start = writeShellScript "epic-games-launcher-start" ''
-    exec ${updater}/libexec/launcher.py run "$@"
+    exec ${updater}/libexec/launcher.py run ${fhsBinary} "$@"
   '';
 
   fhs = appimageTools.defaultFhsEnvArgs;
@@ -62,14 +65,21 @@ SH
     runScript = start;
     extraPreBwrapCmds = ''
       export EGL_NIX_WRAPPER="$0"
-      export EGL_NIX_LAUNCHER_ROOT="$(${updater}/libexec/launcher.py init)"
+      EGL_NIX_LAUNCHER_ROOT=$(${updater}/libexec/launcher.py init) || exit "$?"
+      export EGL_NIX_LAUNCHER_ROOT
+    '';
+    extraBuildCommands = ''
+      mkdir -p "$out${fhsMount}"
     '';
     extraBwrapArgs = [
-      # Upstream checks that the Debian database directory exists before running
-      # its dpkg ownership probe. The adapter uses the private database on disk.
+      # Epic requires the executable under /usr and these Debian directories
+      # before it runs dpkg -S. Bind the parent so a relaunch in the same
+      # namespace sees atomic swaps of installation/.
+      ''--ro-bind "$EGL_NIX_LAUNCHER_ROOT" ${fhsMount}''
       "--tmpfs /var"
       "--symlink /run /var/run"
       "--dir /var/lib/dpkg"
+      "--dir /etc/apt"
     ];
     profile = ''
       export GIO_EXTRA_MODULES="${glib-networking}/lib/gio/modules"

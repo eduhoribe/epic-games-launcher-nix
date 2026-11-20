@@ -15,9 +15,7 @@ import time
 HELPER = Path(sys.argv.pop(1)).resolve()
 sys.path.insert(0, str(HELPER.parent))
 from autostart import Autostart, desktop_quote, prepare_bridge
-
-DPKG_DEB = Path(next(line.split('"')[1] for line in HELPER.read_text().splitlines()
-                     if line.startswith('DPKG_DEB = ')))
+from launcher import DPKG_DEB, FHS_BINARY
 
 
 class UserUpdates(unittest.TestCase):
@@ -62,12 +60,16 @@ class UserUpdates(unittest.TestCase):
         self.call("init")
         self.assertEqual((self.state / "installation/usr/lib/epic-games-launcher/version")
                          .read_text(), "99.0")
-        self.call("run", "-c", "exit 0")
+        self.call("run", self.binary, "-c", "exit 0")
         self.assertFalse((self.work / "config/autostart/epic-games-launcher.desktop").exists())
         self.assertTrue((self.state / "launch").is_file())
         ownership = self.call("dpkg", "-S", self.binary).stdout
         self.assertIn("epic-games-launcher:", ownership)
         self.assertIn(str(self.binary), ownership)
+        self.assertEqual(self.call("dpkg", "-S", FHS_BINARY).stdout,
+                         "epic-games-launcher: /usr/bin/EpicGamesLauncher\n")
+        self.assertNotEqual(self.call("dpkg", "-S", FHS_BINARY + ".other",
+                                      check=False).returncode, 0)
 
     def test_failed_or_wrong_package_leaves_installation_intact(self):
         self.call("pkexec", "dpkg", "-i", self.package("1.0"))
@@ -111,9 +113,9 @@ class UserUpdates(unittest.TestCase):
     def test_autostart_enable_disable_and_reenable_remain_app_owned(self):
         self.call("init")
         # Pass the config location explicitly without changing the host environment.
-        adapter = Autostart(self.state, config_home=self.env["XDG_CONFIG_HOME"])
-        raw = "[Desktop Entry]\nType=Application\nExec=" + desktop_quote(self.binary) + ' --autostart "a b" %u\nHidden=false\n'
-        expected = raw.replace(desktop_quote(self.binary), desktop_quote(self.state / "launch"))
+        adapter = Autostart(self.state, executable=FHS_BINARY, config_home=self.env["XDG_CONFIG_HOME"])
+        raw = "[Desktop Entry]\nType=Application\nExec=" + desktop_quote(FHS_BINARY) + ' --autostart "a b" %u\nHidden=false\n'
+        expected = raw.replace(desktop_quote(FHS_BINARY), desktop_quote(self.state / "launch"))
 
         def wait_for_expected():
             deadline = time.monotonic() + 3

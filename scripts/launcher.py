@@ -15,6 +15,8 @@ DPKG_DEB = "@dpkgDeb@"
 DPKG_QUERY = "@dpkgQuery@"
 SEED = "@seed@"
 RUNTIME = "@runtime@"
+FHS_BINARY = "@fhsBinary@"
+DEB_BINARY = "usr/bin/EpicGamesLauncher"
 
 
 def root():
@@ -29,7 +31,7 @@ def install(package, *, bootstrap=False):
     with (state / "install.lock").open("a") as lock:
         fcntl.flock(lock, fcntl.LOCK_EX)
         destination = state / "installation"
-        if bootstrap and (destination / "usr/bin/EpicGamesLauncher").is_file():
+        if bootstrap and (destination / DEB_BINARY).is_file():
             return
         fields = subprocess.check_output(
             [DPKG_DEB, "-f", str(package), "Package", "Architecture"], text=True)
@@ -38,7 +40,7 @@ def install(package, *, bootstrap=False):
         with tempfile.TemporaryDirectory(prefix=".install-", dir=state) as temporary:
             staged = Path(temporary) / "installation"
             subprocess.run([DPKG_DEB, "-x", str(package), str(staged)], check=True)
-            binary = staged / "usr/bin/EpicGamesLauncher"
+            binary = staged / DEB_BINARY
             if binary.is_symlink() or not binary.is_file() or not os.access(binary, os.X_OK):
                 raise ValueError("Package has no executable usr/bin/EpicGamesLauncher")
             with binary.open("rb") as executable:
@@ -51,7 +53,7 @@ def install(package, *, bootstrap=False):
             control = subprocess.check_output([DPKG_DEB, "-f", str(package)], text=True)
             (database / "status").write_text("Status: install ok installed\n" + control + "\n")
             (database / "info/epic-games-launcher.list").write_text(
-                "/usr/bin/EpicGamesLauncher\n" + str(destination / "usr/bin/EpicGamesLauncher") + "\n")
+                f"/{DEB_BINARY}\n{destination / DEB_BINARY}\n")
             if destination.exists():
                 # Exchange whole installations atomically, including libraries and
                 # ownership metadata. A failed extraction leaves the old one intact.
@@ -70,7 +72,11 @@ def install(package, *, bootstrap=False):
 def dpkg(arguments):
     if len(arguments) == 2 and arguments[0] in ("-S", "--search"):
         database = root() / "installation/var/lib/dpkg"
-        return subprocess.call([DPKG_QUERY, "--admindir=" + str(database), *arguments])
+        option, path = arguments
+        if path == FHS_BINARY:
+            # The Debian path is also recorded by older per-user installs.
+            path = "/" + DEB_BINARY
+        return subprocess.call([DPKG_QUERY, "--admindir=" + str(database), option, path])
     if len(arguments) == 2 and arguments[0] in ("-i", "--install"):
         install(Path(arguments[1]))
         return 0
@@ -95,13 +101,13 @@ def main():
         if len(arguments) == 3 and arguments[0] == "dpkg" and arguments[1] in ("-i", "--install"):
             return dpkg(arguments[1:])
         raise ValueError("Only per-user launcher installation is supported")
-    if command == "run":
+    if command == "run" and arguments:
+        binary, *arguments = arguments
         os.environ.pop("APPIMAGE", None)
         os.environ.pop("APPDIR", None)
         os.environ["PATH"] = RUNTIME + "/libexec/epic-updater:" + os.environ["PATH"]
-        binary = root() / "installation/usr/bin/EpicGamesLauncher"
-        with Autostart(root()):
-            child = subprocess.Popen([str(binary), *arguments])
+        with Autostart(root(), executable=binary):
+            child = subprocess.Popen([binary, *arguments])
             for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
                 signal.signal(number, lambda signum, _frame: child.send_signal(signum))
             returncode = child.wait()
