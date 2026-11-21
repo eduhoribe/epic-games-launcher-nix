@@ -67,23 +67,20 @@ managed by the launcher.
 Epic's per-user application updates remain independent of system rebuilds.
 Future upstream library requirements may still require a Nix runtime update.
 
-### Update the bootstrap package
+### Repository updates
 
-The upstream URL serves the latest Debian package rather than an immutable release.
-The SHA-256 hash pins the downloaded bytes; a changed download fails verification
-until the package is deliberately updated. Old snapshots may stop being available
-from upstream unless already cached.
+The **Update pins** GitHub Actions workflow checks for updates daily at
+06:23 UTC. It refreshes the locked nixpkgs revision and reads the Debian package
+version and SHA-256 hash from Epic's current download. It runs the launcher
+checks before committing any changes to the default branch. You can also run
+the workflow manually from the Actions tab.
 
-To download and hash the current release:
+Epic's download URL rolls forward with each release. The SHA-256 hash pins the
+downloaded bytes. Older pins may require a cached copy of the matching package.
+
+You can refresh both pins locally with Nix, `jq`, and `dpkg` installed.
 
 ```sh
-nix store prefetch-file --json \
-  'https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.deb'
+nix flake update nixpkgs
+bash scripts/update-bootstrap.sh
 ```
-
-Update `version` and `src.hash` in `package.nix`, then build the package, run the
-flake checks, and verify that the launcher opens. This changes the initial
-version for new per-user installations. Existing installations keep their own
-version. Update the launcher flake input and rebuild NixOS or Home Manager to
-receive packaging and runtime changes.
-Update Nixpkgs separately with `nix flake update nixpkgs`.

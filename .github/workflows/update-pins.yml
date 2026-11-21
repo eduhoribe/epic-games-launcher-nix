@@ -1,0 +1,43 @@
+name: Update pins
+
+on:
+  schedule:
+    - cron: '23 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-pins
+
+jobs:
+  update:
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: cachix/install-nix-action@75c75c31ebece974e48ebc36b4ad125bd97bd97b # v31.11.3
+
+      - name: Refresh nixpkgs and the Debian package
+        id: refresh
+        run: |
+          nix flake update nixpkgs
+          bash scripts/update-bootstrap.sh
+          if ! git diff --quiet -- flake.lock bootstrap.json; then
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Run launcher checks
+        if: steps.refresh.outputs.changed == 'true'
+        run: nix build --no-link .#checks.x86_64-linux.user-updates .#checks.x86_64-linux.media-plugins
+
+      - name: Push updated pins
+        if: steps.refresh.outputs.changed == 'true'
+        run: |
+          git add -- flake.lock bootstrap.json
+          git -c user.name='github-actions[bot]' \
+              -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+              commit -m 'Update nixpkgs and Epic Games Launcher pins'
+          git push origin "HEAD:$GITHUB_REF"

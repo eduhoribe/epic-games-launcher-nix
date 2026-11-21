@@ -4,14 +4,14 @@
 
 let
   pname = "epic-games-launcher";
-  version = "0.113.1+g311e678";
+  bootstrap = builtins.fromJSON (builtins.readFile ./bootstrap.json);
+  inherit (bootstrap) version;
   fhsMount = "/usr/epic-games-launcher";
   fhsBinary = "${fhsMount}/installation/usr/bin/EpicGamesLauncher";
 
   # This is the initial per-user installation, not a pin on subsequent updates.
   src = fetchurl {
-    url = "https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.deb";
-    hash = "sha256-Y3KDvhHq76tkSRer0WtwxIrthSfAVikGLIiC/NMM6kM=";
+    inherit (bootstrap) url hash;
   };
 
   contents = runCommand "${pname}-${version}-desktop" { nativeBuildInputs = [ dpkg ]; } ''
