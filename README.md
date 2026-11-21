@@ -3,8 +3,8 @@
 Bootstraps a writable per-user copy of the upstream x86_64 Linux Debian binary
 and runs it in a Nix-provided FHS environment with GTK and WebKit libraries.
 The runtime includes GStreamer audio sinks, media parsers, and decoders for
-WebKit playback. `nix flake check` verifies plugin discovery in the generated
-FHS root and exercises an audio pipeline without requiring an audio device.
+WebKit playback. The flake checks verify plugin discovery in the generated
+FHS root and exercise an audio pipeline without requiring an audio device.
 Includes the desktop entry, Epic launcher URI handler declaration, and icons.
 The software is proprietary; this repository contains the packaging only.
 
@@ -53,29 +53,17 @@ Both modules expose the same options:
 | `enable`         | `false`                   | Install Epic Games Launcher.                     |
 | `package`        | This repository's package | Override the installed package.                  |
 
-The modules use your Nixpkgs unfree policy. Allow this package, for example:
-
-```nix
-nixpkgs.config.allowUnfreePredicate = pkg:
-  builtins.elem (lib.getName pkg) [ "epic-games-launcher" ];
-```
-
-Add it to your existing predicate if you already have one. With Home Manager's
-`useGlobalPkgs`, configure this in NixOS. Alternatively, set `package` to
-`inputs.epic-games-launcher.packages.${pkgs.stdenv.hostPlatform.system}.default`,
-which already permits this specific unfree package.
-
 ### Package only
 
+Add the overlay to your Nixpkgs configuration.
+
 ```nix
-home.packages = [
-  inputs.epic-games-launcher.packages.${pkgs.stdenv.hostPlatform.system}.default
-];
+nixpkgs.overlays = [ inputs.epic-games-launcher.overlays.default ];
 ```
 
-You can also apply `inputs.epic-games-launcher.overlays.default` and install
-`pkgs.epic-games-launcher`, or load the package directly with
-`pkgs.callPackage ./package.nix { }`.
+Then add `pkgs.epic-games-launcher` to `home.packages` or
+`environment.systemPackages`. You can also load the package directly with
+`pkgs.callPackage ./package.nix { }` using your configured Nixpkgs.
 
 ## Update
 
@@ -124,8 +112,8 @@ nix store prefetch-file --json \
   'https://launcher-public-service-prod06.ol.epicgames.com/launcher/api/installer/download/EpicGamesLauncher-x86_64.deb'
 ```
 
-Update `version` and `src.hash` in `package.nix`, then run `nix build`,
-`nix flake check`, and check that the launcher opens. This changes the initial
+Update `version` and `src.hash` in `package.nix`, then build the package, run the
+flake checks, and verify that the launcher opens. This changes the initial
 version for new per-user installations. Existing installations keep their own
 version. Update the launcher flake input and rebuild NixOS or Home Manager to
 receive packaging and runtime changes.

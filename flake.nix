@@ -6,11 +6,7 @@
   outputs = { self, nixpkgs }: {
     packages.x86_64-linux =
       let
-        pkgs = import nixpkgs {
-          system = "x86_64-linux";
-          config.allowUnfreePredicate = pkg:
-            nixpkgs.lib.getName pkg == "epic-games-launcher";
-        };
+        pkgs = import nixpkgs { system = "x86_64-linux"; };
       in {
         epic-games-launcher = pkgs.callPackage ./package.nix { };
         default = self.packages.x86_64-linux.epic-games-launcher;
