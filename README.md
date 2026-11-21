@@ -8,34 +8,13 @@ FHS root and exercises an audio pipeline without requiring an audio device.
 Includes the desktop entry, Epic launcher URI handler declaration, and icons.
 The software is proprietary; this repository contains the packaging only.
 
-## Build and run
-
-Run directly from GitHub:
-
-```sh
-nix run github:eduhoribe/nix-epic-games-launcher
-```
-
-Or clone the repository to build and run locally:
-
-```sh
-git clone https://github.com/eduhoribe/nix-epic-games-launcher.git
-cd nix-epic-games-launcher
-nix build
-nix run
-```
-
-Only `x86_64-linux` is supported. The flake permits this specific unfree package.
-When using `package.nix` or the overlay with your own Nixpkgs instance, allow
-`epic-games-launcher` in your unfree package policy.
-
 ## Use from another flake
 
 Add this repository as an input:
 
 ```nix
 inputs.epic-games-launcher = {
-  url = "github:eduhoribe/nix-epic-games-launcher";
+  url = "github:eduhoribe/epic-games-launcher-nix";
   inputs.nixpkgs.follows = "nixpkgs";
 };
 ```
