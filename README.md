@@ -84,3 +84,12 @@ You can refresh both pins locally with Nix, `jq`, and `dpkg` installed.
 nix flake update nixpkgs
 bash scripts/update-bootstrap.sh
 ```
+
+## Limitations
+
+Uninstalling the package leaves the following files/directories untouched, since they are managed directly by the launcher.
+
+- `~/.local/share/epic-games-launcher/`
+- `~/.local/share/com.epicgames.eglv2/`
+- `~/.cache/com.epicgames.eglv2/`
+- `~/.config/autostart/epic-games-launcher.desktop`
