@@ -154,6 +154,24 @@ class UserUpdates(unittest.TestCase):
         adapter.repair()
         self.assertEqual(adapter.entry.read_text(), other)
 
+    def test_autostart_is_repaired_after_launcher_restarts(self):
+        self.call("init")
+        self.call("dpkg", "-i", self.package("99.0"))
+        entry = Path(self.env["XDG_CONFIG_HOME"]) / "autostart/epic-games-launcher.desktop"
+        successor = self.work / "successor"
+        successor.write_text(
+            'while kill -0 "$1" 2>/dev/null; do sleep 0.01; done\n'
+            'printf "[Desktop Entry]\\nExec=%s --autostart\\n" "$2" > "$3"\n'
+            'exit 7\n'
+        )
+        result = self.call(
+            "run", self.binary, "-c", '"$1" "$2" "$$" "$1" "$3" &', "original",
+            self.binary, successor, entry, check=False,
+        )
+        self.assertEqual(entry.read_text(), "[Desktop Entry]\nExec=" +
+                         desktop_quote(self.state / "launch") + " --autostart\n")
+        self.assertEqual(result.returncode, 7, result.stderr)
+
     def test_adapters_reject_unrelated_commands(self):
         for command in (("pkexec", "sh", "-c", "true"), ("sudo", "id"),
                         ("dpkg", "--remove", "epic-games-launcher")):

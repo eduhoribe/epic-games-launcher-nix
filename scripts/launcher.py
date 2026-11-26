@@ -17,6 +17,7 @@ SEED = "@seed@"
 RUNTIME = "@runtime@"
 FHS_BINARY = "@fhsBinary@"
 DEB_BINARY = "usr/bin/EpicGamesLauncher"
+PR_SET_CHILD_SUBREAPER = 36
 
 
 def root():
@@ -83,6 +84,45 @@ def dpkg(arguments):
     raise ValueError("Unsupported dpkg operation in the per-user launcher runtime")
 
 
+def relaunched_pid(binary):
+    # The launcher can fork a replacement during self-update. Once the old
+    # process exits, Linux reparents the new launcher to this wrapper.
+    children = Path(f"/proc/self/task/{os.getpid()}/children").read_text().split()
+    for pid in map(int, children):
+        try:
+            if os.path.samefile(f"/proc/{pid}/exe", binary):
+                return pid
+        except (FileNotFoundError, PermissionError, ProcessLookupError):
+            continue
+    return None
+
+
+def run(binary, arguments):
+    libc = ctypes.CDLL(None, use_errno=True)
+    if libc.prctl(PR_SET_CHILD_SUBREAPER, 1, 0, 0, 0):
+        error = ctypes.get_errno()
+        raise OSError(error, os.strerror(error))
+
+    def forward(signum, _frame):
+        if launcher_pid is not None:
+            try:
+                os.kill(launcher_pid, signum)
+            except ProcessLookupError:
+                pass
+
+    with Autostart(root(), executable=binary):
+        launcher_pid = os.posix_spawn(binary, [binary, *arguments], os.environ,
+                                      setsigdef=(signal.SIGPIPE, signal.SIGXFSZ))
+        for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            signal.signal(number, forward)
+        while launcher_pid is not None:
+            pid, status = os.waitpid(-1, 0)
+            if pid == launcher_pid:
+                returncode = os.waitstatus_to_exitcode(status)
+                launcher_pid = relaunched_pid(binary)
+        return returncode if returncode >= 0 else 128 - returncode
+
+
 def main():
     command, *arguments = sys.argv[1:]
     if command == "init" and not arguments:
@@ -106,12 +146,7 @@ def main():
         os.environ.pop("APPIMAGE", None)
         os.environ.pop("APPDIR", None)
         os.environ["PATH"] = RUNTIME + "/libexec/epic-updater:" + os.environ["PATH"]
-        with Autostart(root(), executable=binary):
-            child = subprocess.Popen([binary, *arguments])
-            for number in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
-                signal.signal(number, lambda signum, _frame: child.send_signal(signum))
-            returncode = child.wait()
-            return returncode if returncode >= 0 else 128 - returncode
+        return run(binary, arguments)
     raise ValueError("Unknown launcher helper command")
 
 
